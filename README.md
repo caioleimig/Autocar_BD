@@ -1,103 +1,99 @@
-# Sistema de Veículos e Contratos
-### Entrega 03 — Banco de Dados | CESAR School
+# Autocar
 
-Interface JavaFX com CRUD para **Cliente** e **Veículo**, integrada ao MySQL via JDBC puro.
+Sistema de gerenciamento de veículos e contratos desenvolvido para a disciplina de Banco de Dados da CESAR School.
+
+---
+
+## Tecnologias utilizadas
+
+- Java 17+
+- JavaFX (interface gráfica)
+- MySQL 8+
+- JDBC (conexão com o banco, sem ORM)
 
 ---
 
 ## Pré-requisitos
 
-| Ferramenta | Download |
-|---|---|
-| JDK 17+ | https://adoptium.net |
-| JavaFX SDK 21 | https://gluonhq.com/products/javafx/ |
-| MySQL 8+ | já instalado |
-| MySQL Connector/J | https://dev.mysql.com/downloads/connector/j/ |
-| IntelliJ IDEA Community | já instalado |
+Antes de rodar o projeto, você precisa ter instalado:
+
+- [JDK 17 ou superior](https://adoptium.net)
+- [JavaFX SDK 21](https://gluonhq.com/products/javafx/) — baixe a versão para o seu sistema operacional
+- [MySQL 8+](https://dev.mysql.com/downloads/mysql/)
+- [MySQL Connector/J](https://dev.mysql.com/downloads/connector/j/) — selecione "Platform Independent" e baixe o ZIP
+- [IntelliJ IDEA](https://www.jetbrains.com/idea/download/) — a versão Community é gratuita
 
 ---
 
-## 1. Configurar o banco
+## Configurando o banco de dados
 
-1. Abra o **MySQL Workbench**
-2. Clique em **File > Open SQL Script** → selecione `ddl_v2.sql` → execute (⚡)
-3. Clique em **File > Open SQL Script** → selecione `dml_v2.sql` → execute (⚡)
+1. Abra o MySQL Workbench e conecte ao servidor local
+2. Vá em **File > Open SQL Script**, selecione o arquivo `ddl_v2.sql` e execute (botão ⚡)
+3. Repita o processo com o arquivo `dml_v2.sql`
+
+Após isso, o banco `veiculos_db` estará criado com todas as tabelas e dados de exemplo.
 
 ---
 
-## 2. Abrir o projeto no IntelliJ
+## Configurando o projeto no IntelliJ
 
-1. **File > Open** → selecione a pasta `veiculos_javafx`
-2. **File > Project Structure (Ctrl+Alt+Shift+S)**
-   - Em **Project**: selecione o JDK 17+
-   - Em **Modules > Dependencies > (+) > JARs**: adicione o `mysql-connector-j-x.x.x.jar`
-   - Em **Libraries > (+) > Java**: adicione a pasta `lib` do JavaFX SDK
-3. Edite a senha em `src/com/veiculos/util/DBConnection.java`:
+1. Abra o IntelliJ e vá em **File > Open** → selecione a pasta do projeto
+2. Vá em **File > Project Structure** (`Ctrl+Alt+Shift+S`)
+   - Em **Libraries**, clique em **+** → **Java** → selecione a pasta `lib` dentro do JavaFX SDK
+   - Em **Libraries**, clique em **+** → **Java** → selecione o arquivo `.jar` do MySQL Connector
+3. Edite o arquivo `src/com/veiculos/util/DBConnection.java` e troque a senha:
    ```java
    private static final String PASS = "sua_senha_aqui";
    ```
 
 ---
 
-## 3. Configurar Run Configuration
+## Configurando o Run Configuration
 
-1. **Run > Edit Configurations > (+) > Application**
-2. **Main class:** `com.veiculos.controller.MainApp`
-3. **VM Options:**
-```
---module-path "C:\caminho\javafx-sdk\lib" --add-modules javafx.controls,javafx.fxml
-```
-4. Clique em OK e rode com **Shift+F10**
+1. Vá em **Run > Edit Configurations**
+2. Clique em **+** → **Application**
+3. Preencha:
+   - **Name:** VeiculosApp
+   - **Main class:** `com.veiculos.controller.MainApp`
+4. Clique em **Modify options** → **Add VM options** e cole:
+   ```
+   --module-path "caminho/para/javafx-sdk/lib" --add-modules javafx.controls,javafx.fxml
+   ```
+   Substitua `caminho/para/javafx-sdk` pelo caminho real onde você extraiu o JavaFX SDK.
+5. Clique em **OK** e rode com **Shift+F10** ou o botão ▶
 
 ---
 
-## 4. Usando a interface
+## Como usar
 
 ### Aba Clientes
-- **Inserir:** preencha os campos → Salvar
-- **Editar:** clique na linha da tabela → altere os campos → Salvar
-- **Deletar:** clique na linha da tabela → Deletar
+- **Inserir:** preencha os campos e clique em Salvar
+- **Editar:** clique em um cliente na tabela, altere os campos e clique em Salvar
+- **Deletar:** clique em um cliente na tabela e clique em Deletar
 
 ### Aba Veículos
-- **Inserir:** preencha os campos → Salvar
-- **Editar:** clique na linha da tabela → altere os campos → Salvar
-- **Deletar:** clique na linha da tabela → Deletar
-
-> O campo **Id Marca** deve ser um número inteiro de uma Marca existente no banco (1=Toyota, 2=Ford, etc.)
+- **Inserir:** preencha os campos e clique em Salvar
+- **Editar:** clique em um veículo na tabela, altere os campos e clique em Salvar
+- **Deletar:** clique em um veículo na tabela e clique em Deletar
 
 ---
 
 ## Estrutura do projeto
 
 ```
-veiculos_javafx/
-├── ddl_v2.sql                          ← Criação das tabelas
-├── dml_v2.sql                          ← Inserção de dados (30+ por tabela)
+Autocar_BD/
+├── ddl_v2.sql               — Criação das tabelas
+├── dml_v2.sql               — Inserção de dados (30+ registros por tabela)
 ├── README.md
 └── src/com/veiculos/
     ├── controller/
-    │   └── MainApp.java                ← Interface JavaFX
+    │   └── MainApp.java     — Interface JavaFX
     ├── dao/
-    │   ├── ClienteDAO.java             ← CRUD Cliente (JDBC puro)
-    │   └── VeiculoDAO.java             ← CRUD Veículo (JDBC puro)
+    │   ├── ClienteDAO.java  — Operações SQL de Cliente
+    │   └── VeiculoDAO.java  — Operações SQL de Veículo
     ├── model/
     │   ├── Cliente.java
     │   └── Veiculo.java
     └── util/
-        └── DBConnection.java           ← Conexão MySQL
+        └── DBConnection.java — Conexão com o MySQL
 ```
-
----
-
-## Constraints aplicadas no DDL
-
-| Constraint | Onde foi aplicada |
-|---|---|
-| `PRIMARY KEY` | Todas as tabelas |
-| `FOREIGN KEY` | Todas as relações |
-| `ON UPDATE CASCADE` | Telefone_Cliente, Veiculo, Carro, Caminhonete, Dependente, Contrato, Aluguel, Manutencao |
-| `ON DELETE SET NULL` | Veiculo → Seguradora, Funcionario → Supervisor |
-| `ON DELETE CASCADE` | Telefone_Cliente, Carro, Caminhonete, Dependente, Contrato_Veiculo |
-| `CHECK` | CPF (11 chars), CNPJ (14 chars), Chassi (17 chars), Qtd_Portas (2 ou 4), Salario (>= 1412), Custo (>= 0), KM, datas |
-| `DEFAULT` | Rua, Bairro, Numero, Segmento, Tipo_Tracao, Salario, Km_Saida, Custo |
-| `UNIQUE` | Placa (Veiculo), Nome_Marca, Nome_Fantasia |
