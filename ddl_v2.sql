@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS Contrato_Veiculo (
   CONSTRAINT fk_cv_contrato FOREIGN KEY (ID_Contrato)
     REFERENCES Contrato(ID_Contrato)
     ON UPDATE CASCADE
-    ON DELETE CASCADE,
+    ON DELETE RESTRICT,
   CONSTRAINT fk_cv_veiculo FOREIGN KEY (Chassi_Veiculo)
     REFERENCES Veiculo(Chassi)
     ON UPDATE CASCADE

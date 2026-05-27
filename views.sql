@@ -1,3 +1,5 @@
+USE veiculos_db;
+
 CREATE OR REPLACE VIEW vw_historico_alugueis_cliente AS
 SELECT
     a.Id_Aluguel,

@@ -616,9 +616,10 @@ public class MainApp extends Application {
 
     private void salvarVeiculo() {
         try {
+            String cnpj = tfCnpj.getText().trim();
             Veiculo v = new Veiculo(tfChassi.getText().trim(), tfPlaca.getText().trim(),
                 tfCor.getText().trim(), Integer.parseInt(tfAno.getText().trim()),
-                Integer.parseInt(tfIdMarca.getText().trim()), tfCnpj.getText().trim());
+                Integer.parseInt(tfIdMarca.getText().trim()), cnpj.isEmpty() ? null : cnpj);
             if (veiculoDAO.buscarPorChassi(v.getChassi()) == null) veiculoDAO.inserir(v);
             else veiculoDAO.atualizar(v);
             carregarVeiculos();

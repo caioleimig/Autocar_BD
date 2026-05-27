@@ -32,6 +32,11 @@ BEGIN
     WHERE  Id_Aluguel = p_id_aluguel
       AND  Data_Devolucao IS NULL;
 
+    IF v_data_ret IS NULL THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'Aluguel nao encontrado ou ja foi devolvido.';
+    END IF;
+
     SET v_dias          = DATEDIFF(p_data_dev, v_data_ret);
     SET v_km_percorrida = p_km_chegada - v_km_saida;
     SET v_valor_total   = (v_dias * 80.00) + (v_km_percorrida * 1.50);
@@ -87,7 +92,7 @@ BEGIN
         IF v_fim THEN LEAVE loop_func; END IF;
 
         CASE
-            WHEN v_cargo = 'Gerente'   THEN SET v_percentual = 0.15; SET v_teto = 15000.00;
+            WHEN v_cargo = 'Gerente Geral' THEN SET v_percentual = 0.15; SET v_teto = 15000.00;
             WHEN v_cargo = 'Atendente' THEN SET v_percentual = 0.10; SET v_teto = 5000.00;
             ELSE                            SET v_percentual = 0.05; SET v_teto = 8000.00;
         END CASE;
