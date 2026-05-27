@@ -49,6 +49,9 @@ public class MainApp extends Application {
 
     // ── Funcionario fields ────────────────────────────────────
     private final TextField tfFuncMatricula = new TextField();
+    private final TextField tfFuncNome      = new TextField();
+    private final TextField tfFuncSalario   = new TextField();
+    private final TextField tfFuncCargo     = new TextField();
     private TableView<ObservableList<String>> tabelaFuncionario;
 
     // ── Veiculo fields ────────────────────────────────────────
@@ -517,26 +520,43 @@ public class MainApp extends Application {
 
         tabelaFuncionario.setOnMouseClicked(e -> {
             ObservableList<String> row = tabelaFuncionario.getSelectionModel().getSelectedItem();
-            if (row != null) tfFuncMatricula.setText(row.get(0));
+            if (row != null) {
+                tfFuncMatricula.setText(row.get(0));
+                tfFuncNome.setText(row.get(1));
+                tfFuncSalario.setText(row.get(2));
+                tfFuncCargo.setText(row.get(3));
+            }
         });
 
         tfFuncMatricula.setPromptText("Ex: 31");
+        tfFuncNome.setPromptText("Ex: João Silva");
+        tfFuncSalario.setPromptText("Ex: 1412.00");
+        tfFuncCargo.setPromptText("Ex: Atendente");
 
         GridPane form = form(
-            new String[]{"Matrícula:"},
-            new TextField[]{tfFuncMatricula}
+            new String[]{"Matrícula:", "Nome:", "Salário:", "Cargo:"},
+            new TextField[]{tfFuncMatricula, tfFuncNome, tfFuncSalario, tfFuncCargo}
         );
 
         Button salvar = btn("Salvar", () -> {
-            String mat = tfFuncMatricula.getText().trim();
-            if (mat.isEmpty()) { info("Informe a matrícula."); return; }
+            String mat    = tfFuncMatricula.getText().trim();
+            String nome   = tfFuncNome.getText().trim();
+            String salStr = tfFuncSalario.getText().trim();
+            String cargo  = tfFuncCargo.getText().trim();
+            if (mat.isEmpty() || nome.isEmpty() || cargo.isEmpty()) {
+                info("Matrícula, Nome e Cargo são obrigatórios."); return;
+            }
+            double salario = salStr.isEmpty() ? 1412.00 : Double.parseDouble(salStr);
             try (Connection con = getConnection();
                  PreparedStatement ps = con.prepareStatement(
-                     "INSERT IGNORE INTO Funcionario (Matricula, Nome, Salario, Cargo) VALUES (?, ?, 1412.00, 'Atendente')")) {
+                     "INSERT INTO Funcionario (Matricula, Nome, Salario, Cargo) VALUES (?,?,?,?) " +
+                     "ON DUPLICATE KEY UPDATE Nome=VALUES(Nome), Salario=VALUES(Salario), Cargo=VALUES(Cargo)")) {
                 ps.setInt(1, Integer.parseInt(mat));
-                ps.setString(2, "Funcionário " + mat);
+                ps.setString(2, nome);
+                ps.setDouble(3, salario);
+                ps.setString(4, cargo);
                 ps.executeUpdate();
-                info("Matrícula " + mat + " cadastrada!");
+                info("Funcionário salvo!");
                 carregarFuncionarios();
             } catch (Exception ex) { erro(ex.getMessage()); }
         });
@@ -554,7 +574,10 @@ public class MainApp extends Application {
             } catch (Exception ex) { erro(ex.getMessage()); }
         });
 
-        Button limpar = btn("Limpar", () -> tfFuncMatricula.clear());
+        Button limpar = btn("Limpar", () -> {
+            tfFuncMatricula.clear(); tfFuncNome.clear();
+            tfFuncSalario.clear(); tfFuncCargo.clear();
+        });
 
         HBox bts = new HBox(8, salvar, deletar, limpar);
         VBox layout = new VBox(10, form, bts, tabelaFuncionario);
