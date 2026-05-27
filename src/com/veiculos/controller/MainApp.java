@@ -47,6 +47,10 @@ public class MainApp extends Application {
     private final ObservableList<Cliente> clienteData = FXCollections.observableArrayList();
     private TableView<Cliente> tabelaCliente;
 
+    // ── Funcionario fields ────────────────────────────────────
+    private final TextField tfFuncMatricula = new TextField();
+    private TableView<ObservableList<String>> tabelaFuncionario;
+
     // ── Veiculo fields ────────────────────────────────────────
     private final TextField tfChassi  = new TextField();
     private final TextField tfPlaca   = new TextField();
@@ -84,6 +88,7 @@ public class MainApp extends Application {
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.getTabs().addAll(
             new Tab("Clientes",     buildClienteTab()),
+            new Tab("Funcionários", buildFuncionarioTab()),
             new Tab("Veículos",     buildVeiculoTab()),
             new Tab("Contratos",    buildContratoTab()),
             new Tab("Aluguéis",     buildAluguelTab()),
@@ -503,6 +508,69 @@ public class MainApp extends Application {
 
     private Connection getConnection() throws SQLException {
         return com.veiculos.util.DBConnection.getConnection();
+    }
+
+    // ── FUNCIONARIO ───────────────────────────────────────────
+    private VBox buildFuncionarioTab() {
+        tabelaFuncionario = buildTabelaDinamica();
+        tabelaFuncionario.setPrefHeight(400);
+
+        tabelaFuncionario.setOnMouseClicked(e -> {
+            ObservableList<String> row = tabelaFuncionario.getSelectionModel().getSelectedItem();
+            if (row != null) tfFuncMatricula.setText(row.get(0));
+        });
+
+        tfFuncMatricula.setPromptText("Ex: 31");
+
+        GridPane form = form(
+            new String[]{"Matrícula:"},
+            new TextField[]{tfFuncMatricula}
+        );
+
+        Button salvar = btn("Salvar", () -> {
+            String mat = tfFuncMatricula.getText().trim();
+            if (mat.isEmpty()) { info("Informe a matrícula."); return; }
+            try (Connection con = getConnection();
+                 PreparedStatement ps = con.prepareStatement(
+                     "INSERT IGNORE INTO Funcionario (Matricula, Nome, Salario, Cargo) VALUES (?, ?, 1412.00, 'Atendente')")) {
+                ps.setInt(1, Integer.parseInt(mat));
+                ps.setString(2, "Funcionário " + mat);
+                ps.executeUpdate();
+                info("Matrícula " + mat + " cadastrada!");
+                carregarFuncionarios();
+            } catch (Exception ex) { erro(ex.getMessage()); }
+        });
+
+        Button deletar = btn("Deletar", () -> {
+            String mat = tfFuncMatricula.getText().trim();
+            if (mat.isEmpty()) { info("Selecione uma matrícula."); return; }
+            try (Connection con = getConnection();
+                 PreparedStatement ps = con.prepareStatement(
+                         "DELETE FROM Funcionario WHERE Matricula = ?")) {
+                ps.setInt(1, Integer.parseInt(mat));
+                ps.executeUpdate();
+                info("Matrícula " + mat + " removida!");
+                carregarFuncionarios();
+            } catch (Exception ex) { erro(ex.getMessage()); }
+        });
+
+        Button limpar = btn("Limpar", () -> tfFuncMatricula.clear());
+
+        HBox bts = new HBox(8, salvar, deletar, limpar);
+        VBox layout = new VBox(10, form, bts, tabelaFuncionario);
+        layout.setPadding(new Insets(12));
+        VBox.setVgrow(tabelaFuncionario, Priority.ALWAYS);
+        carregarFuncionarios();
+        return layout;
+    }
+
+    private void carregarFuncionarios() {
+        try (Connection con = getConnection();
+             Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(
+                     "SELECT Matricula, Nome, Salario, Cargo FROM Funcionario ORDER BY Matricula")) {
+            preencherTabela(tabelaFuncionario, rs);
+        } catch (Exception ex) { erro(ex.getMessage()); }
     }
 
     // ── CLIENTE ───────────────────────────────────────────────
