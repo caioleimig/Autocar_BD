@@ -31,3 +31,55 @@ WHERE v.Id_Marca = (
     ORDER BY COUNT(*) DESC
     LIMIT 1
 );
+-- ── PROCEDURE: sp_registrar_devolucao ────────────────────────
+DELIMITER $$
+
+CREATE PROCEDURE sp_registrar_devolucao(
+    IN p_id_aluguel INT,
+    IN p_data_devolucao DATE,
+    IN p_km_chegada DECIMAL(10,2)
+)
+BEGIN
+    DECLARE v_km_saida   DECIMAL(10,2);
+    DECLARE v_retirada   DATE;
+    DECLARE v_dias       INT;
+    DECLARE v_km_rodados DECIMAL(10,2);
+    DECLARE v_valor      DECIMAL(10,2);
+
+    SELECT Km_Saida, Data_Retirada
+    INTO v_km_saida, v_retirada
+    FROM Aluguel
+    WHERE ID_Aluguel = p_id_aluguel;
+
+    SET v_dias       = DATEDIFF(p_data_devolucao, v_retirada);
+    SET v_km_rodados = p_km_chegada - v_km_saida;
+    SET v_valor      = (v_dias * 80.00) + (v_km_rodados * 1.50);
+
+    UPDATE Aluguel
+    SET Data_Devolucao = p_data_devolucao,
+        Km_Chegada     = p_km_chegada,
+        Valor_Total    = v_valor
+    WHERE ID_Aluguel = p_id_aluguel;
+
+    SELECT CONCAT('Devolução registrada! Dias: ', v_dias,
+                  ' | Km rodados: ', v_km_rodados,
+                  ' | Valor: R$ ', v_valor) AS resultado;
+END$$
+
+DELIMITER ;
+
+-- ── PROCEDURE: sp_reajuste_salarial ──────────────────────────
+DELIMITER $$
+
+CREATE PROCEDURE sp_reajuste_salarial()
+BEGIN
+    UPDATE Funcionario SET Salario = Salario * 1.15 WHERE Cargo = 'Gerente Geral';
+    UPDATE Funcionario SET Salario = Salario * 1.12 WHERE Cargo IN ('Supervisora', 'Supervisor');
+    UPDATE Funcionario SET Salario = Salario * 1.10 WHERE Cargo IN ('Coordenadora', 'Coordenador');
+    UPDATE Funcionario SET Salario = Salario * 1.08 WHERE Cargo = 'Analista';
+    UPDATE Funcionario SET Salario = Salario * 1.05 WHERE Cargo = 'Atendente';
+
+    SELECT 'Reajuste salarial aplicado com sucesso!' AS resultado;
+END$$
+
+DELIMITER ;

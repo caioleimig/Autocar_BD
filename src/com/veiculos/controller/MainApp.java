@@ -90,14 +90,14 @@ public class MainApp extends Application {
         TabPane tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.getTabs().addAll(
-            new Tab("Clientes",     buildClienteTab()),
-            new Tab("Funcionários", buildFuncionarioTab()),
-            new Tab("Veículos",     buildVeiculoTab()),
-            new Tab("Contratos",    buildContratoTab()),
-            new Tab("Aluguéis",     buildAluguelTab()),
-            new Tab("Operações BD", buildOperacoesTab()),
-            new Tab("Consultas e Views", buildConsultasViewsTab()),
-            new Tab("Dashboard",    buildDashboardTab())
+                new Tab("Clientes",          buildClienteTab()),
+                new Tab("Funcionários",      buildFuncionarioTab()),
+                new Tab("Veículos",          buildVeiculoTab()),
+                new Tab("Contratos",         buildContratoTab()),
+                new Tab("Aluguéis",          buildAluguelTab()),
+                new Tab("Operações BD",      buildOperacoesTab()),
+                new Tab("Consultas e Views", buildConsultasViewsTab()),
+                new Tab("Dashboard",         buildDashboardTab())
         );
 
         stage.setScene(new Scene(tabs, 980, 660));
@@ -121,7 +121,7 @@ public class MainApp extends Application {
         taResultado.setWrapText(true);
         taResultado.setPromptText("Resultado das operações aparecerá aqui...");
 
-        // ── FUNÇÕES ──────────────────────────────────────────
+        // ── FUNÇÕES ───────────────────────────────────────────
         TitledPane painelFuncoes = new TitledPane();
         painelFuncoes.setText("Funções");
 
@@ -129,9 +129,9 @@ public class MainApp extends Application {
         vFuncoes.setPadding(new Insets(8));
 
         Label lbFn1 = new Label("fn_classificar_aluguel — calcula valor do aluguel por km rodado:");
-        TextField tfKmSaidaFn = new TextField(); tfKmSaidaFn.setPromptText("Km Saída");    tfKmSaidaFn.setPrefWidth(120);
-        TextField tfKmChegFn  = new TextField(); tfKmChegFn.setPromptText("Km Chegada");   tfKmChegFn.setPrefWidth(120);
-        TextField tfDiariaFn  = new TextField(); tfDiariaFn.setPromptText("Diária base");  tfDiariaFn.setPrefWidth(120);
+        TextField tfKmSaidaFn = new TextField(); tfKmSaidaFn.setPromptText("Km Saída");   tfKmSaidaFn.setPrefWidth(120);
+        TextField tfKmChegFn  = new TextField(); tfKmChegFn.setPromptText("Km Chegada");  tfKmChegFn.setPrefWidth(120);
+        TextField tfDiariaFn  = new TextField(); tfDiariaFn.setPromptText("Diária base"); tfDiariaFn.setPrefWidth(120);
         Button btnFn1 = new Button("Calcular");
         btnFn1.setOnAction(e -> {
             try (Connection con = getConnection();
@@ -165,7 +165,7 @@ public class MainApp extends Application {
         vFuncoes.getChildren().addAll(lbFn1, rowFn1, new Separator(), lbFn2, rowFn2);
         painelFuncoes.setContent(vFuncoes);
 
-        // ── PROCEDURES ───────────────────────────────────────
+        // ── PROCEDURES ────────────────────────────────────────
         TitledPane painelProc = new TitledPane();
         painelProc.setText("Procedimentos");
 
@@ -177,22 +177,32 @@ public class MainApp extends Application {
         TextField tfProcData = new TextField(); tfProcData.setPromptText("Data dev. AAAA-MM-DD"); tfProcData.setPrefWidth(160);
         TextField tfProcKm   = new TextField(); tfProcKm.setPromptText("Km Chegada");             tfProcKm.setPrefWidth(110);
         Button btnProc1 = new Button("Registrar Devolução");
+
+        // ── CORREÇÃO: usa execute() + getResultSet() em vez de executeQuery() ──
         btnProc1.setOnAction(e -> {
             try (Connection con = getConnection();
                  CallableStatement cs = con.prepareCall("{CALL sp_registrar_devolucao(?, ?, ?)}")) {
                 cs.setInt(1, Integer.parseInt(tfProcId.getText().trim()));
                 cs.setDate(2, java.sql.Date.valueOf(tfProcData.getText().trim()));
                 cs.setBigDecimal(3, new BigDecimal(tfProcKm.getText().trim()));
-                ResultSet rs = cs.executeQuery();
-                if (rs.next()) taResultado.setText("sp_registrar_devolucao → " + rs.getString("resultado"));
+                cs.execute();
+                ResultSet rs = cs.getResultSet();
+                if (rs != null && rs.next()) {
+                    taResultado.setText("sp_registrar_devolucao → " + rs.getString("resultado"));
+                } else {
+                    taResultado.setText("sp_registrar_devolucao → Devolução registrada com sucesso!");
+                }
                 carregarAlugueis();
             } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
         });
+
         HBox rowProc1 = new HBox(8, tfProcId, tfProcData, tfProcKm, btnProc1);
         rowProc1.setAlignment(Pos.CENTER_LEFT);
 
         Label lbProc2 = new Label("sp_reajuste_salarial — aplica reajuste escalonado por cargo em todos os funcionários:");
         Button btnProc2 = new Button("Aplicar Reajuste Salarial");
+
+        // ── CORREÇÃO: usa execute() + getResultSet() em vez de executeQuery() ──
         btnProc2.setOnAction(e -> {
             Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
                     "Confirma o reajuste salarial para todos os funcionários?",
@@ -202,8 +212,14 @@ public class MainApp extends Application {
                 if (bt == ButtonType.YES) {
                     try (Connection con = getConnection();
                          CallableStatement cs = con.prepareCall("{CALL sp_reajuste_salarial()}")) {
-                        ResultSet rs = cs.executeQuery();
-                        if (rs.next()) taResultado.setText("sp_reajuste_salarial → " + rs.getString("resultado"));
+                        cs.execute();
+                        ResultSet rs = cs.getResultSet();
+                        if (rs != null && rs.next()) {
+                            taResultado.setText("sp_reajuste_salarial → " + rs.getString("resultado"));
+                        } else {
+                            taResultado.setText("sp_reajuste_salarial → Reajuste aplicado com sucesso!");
+                        }
+                        carregarFuncionarios();
                     } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
                 }
             });
@@ -212,7 +228,7 @@ public class MainApp extends Application {
         vProc.getChildren().addAll(lbProc1, rowProc1, new Separator(), lbProc2, btnProc2);
         painelProc.setContent(vProc);
 
-        // ── TRIGGERS ─────────────────────────────────────────
+        // ── TRIGGERS ──────────────────────────────────────────
         TitledPane painelTrig = new TitledPane();
         painelTrig.setText("Triggers — visualizar efeitos");
 
@@ -227,7 +243,7 @@ public class MainApp extends Application {
                  Statement st = con.createStatement();
                  ResultSet rs = st.executeQuery(
                          "SELECT Id_Log, Matricula_Func, Salario_Antigo, Salario_Novo, Data_Alteracao " +
-                         "FROM Log_Salario ORDER BY Data_Alteracao DESC LIMIT 50")) {
+                                 "FROM Log_Salario ORDER BY Data_Alteracao DESC LIMIT 50")) {
                 preencherTabela(tabelaLog, rs);
                 taResultado.setText("Log_Salario carregado (" + tabelaLog.getItems().size() + " registros).");
             } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
@@ -241,8 +257,8 @@ public class MainApp extends Application {
                  Statement st = con.createStatement();
                  ResultSet rs = st.executeQuery(
                          "SELECT v.Chassi, v.Placa, v.Cor, m.Tipo_Servico, m.Data_Entrada " +
-                         "FROM Manutencao m JOIN Veiculo v ON m.Chassi_Veiculo = v.Chassi " +
-                         "WHERE m.Data_Saida IS NULL ORDER BY m.Data_Entrada DESC")) {
+                                 "FROM Manutencao m JOIN Veiculo v ON m.Chassi_Veiculo = v.Chassi " +
+                                 "WHERE m.Data_Saida IS NULL ORDER BY m.Data_Entrada DESC")) {
                 preencherTabela(tabelaManut, rs);
                 taResultado.setText("Veículos bloqueados: " + tabelaManut.getItems().size());
             } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
@@ -261,224 +277,75 @@ public class MainApp extends Application {
         return scroll;
     }
 
+    // ── CONSULTAS E VIEWS ─────────────────────────────────────
     private ScrollPane buildConsultasViewsTab() {
-
         VBox root = new VBox(18);
         root.setPadding(new Insets(14));
 
-        // =========================
-        // TABELA DINÂMICA
-        // =========================
-
-        TableView<ObservableList<String>> tabela =
-                buildTabelaDinamica();
-
+        TableView<ObservableList<String>> tabela = buildTabelaDinamica();
         tabela.setPrefHeight(300);
 
         TextArea resultado = new TextArea();
         resultado.setEditable(false);
         resultado.setPrefHeight(100);
 
-        // =========================
-        // KPIs
-        // =========================
-
         Label lbTotalAlugueis = new Label("Total de Aluguéis: --");
-        Label lbReceita = new Label("Receita Total: --");
-        Label lbClientes = new Label("Clientes Ativos: --");
+        Label lbReceita       = new Label("Receita Total: --");
+        Label lbClientes      = new Label("Clientes Ativos: --");
 
-        VBox indicadores = new VBox(
-                8,
-                lbTotalAlugueis,
-                lbReceita,
-                lbClientes
-        );
-
+        VBox indicadores = new VBox(8, lbTotalAlugueis, lbReceita, lbClientes);
         indicadores.setPadding(new Insets(10));
-        indicadores.setStyle(
-                "-fx-border-color: lightgray;" +
-                        "-fx-border-radius: 8;" +
-                        "-fx-background-radius: 8;"
-        );
-
-        // =========================
-        // GRÁFICO
-        // =========================
+        indicadores.setStyle("-fx-border-color: lightgray; -fx-border-radius: 8; -fx-background-radius: 8;");
 
         CategoryAxis xAxis = new CategoryAxis();
-        NumberAxis yAxis = new NumberAxis();
-
-        BarChart<String, Number> grafico =
-                new BarChart<>(xAxis, yAxis);
-
+        NumberAxis yAxis   = new NumberAxis();
+        BarChart<String, Number> grafico = new BarChart<>(xAxis, yAxis);
         grafico.setTitle("Clientes que Mais Gastaram");
 
-        // =========================
-        // CONSULTA 1
-        // =========================
-
-        Label lbConsulta1 =
-                new Label("Clientes que mais gastaram:");
-
-        Button btnConsulta1 =
-                new Button("Executar Consulta");
+        Label  lbConsulta1  = new Label("Clientes que mais gastaram:");
+        Button btnConsulta1 = new Button("Executar Consulta");
 
         btnConsulta1.setOnAction(e -> {
-
-            try (
-                    Connection con = getConnection();
-                    Statement st = con.createStatement();
-
-                    ResultSet rs = st.executeQuery(
-
-                            "SELECT c.nome, " +
-                                    "SUM(a.valor_total) AS total_gasto " +
-                                    "FROM aluguel a " +
-                                    "JOIN cliente c ON a.cpf_cliente = c.cpf " +
-                                    "GROUP BY c.nome " +
-                                    "ORDER BY total_gasto DESC"
-
-                    )
-            ) {
-
+            try (Connection con = getConnection();
+                 Statement st = con.createStatement();
+                 ResultSet rs = st.executeQuery(
+                         "SELECT c.nome, SUM(a.valor_total) AS total_gasto " +
+                                 "FROM aluguel a JOIN cliente c ON a.cpf_cliente = c.cpf " +
+                                 "GROUP BY c.nome ORDER BY total_gasto DESC")) {
                 preencherTabela(tabela, rs);
-
-                resultado.setText(
-                        "Consulta executada com sucesso!"
-                );
-
-            } catch (Exception ex) {
-
-                resultado.setText(
-                        "Erro: " + ex.getMessage()
-                );
-
-            }
-
-            // ===== GRÁFICO =====
+                resultado.setText("Consulta executada com sucesso!");
+            } catch (Exception ex) { resultado.setText("Erro: " + ex.getMessage()); }
 
             grafico.getData().clear();
-
-            XYChart.Series<String, Number> serie =
-                    new XYChart.Series<>();
-
-            try (
-                    Connection con = getConnection();
-                    Statement st = con.createStatement();
-
-                    ResultSet rs = st.executeQuery(
-
-                            "SELECT c.nome, " +
-                                    "SUM(a.valor_total) AS total_gasto " +
-                                    "FROM aluguel a " +
-                                    "JOIN cliente c ON a.cpf_cliente = c.cpf " +
-                                    "GROUP BY c.nome " +
-                                    "ORDER BY total_gasto DESC"
-
-                    )
-            ) {
-
-                while (rs.next()) {
-
-                    serie.getData().add(
-
-                            new XYChart.Data<>(
-
-                                    rs.getString("nome"),
-                                    rs.getDouble("total_gasto")
-
-                            )
-
-                    );
-
-                }
-
+            XYChart.Series<String, Number> serie = new XYChart.Series<>();
+            try (Connection con = getConnection();
+                 Statement st = con.createStatement();
+                 ResultSet rs = st.executeQuery(
+                         "SELECT c.nome, SUM(a.valor_total) AS total_gasto " +
+                                 "FROM aluguel a JOIN cliente c ON a.cpf_cliente = c.cpf " +
+                                 "GROUP BY c.nome ORDER BY total_gasto DESC")) {
+                while (rs.next())
+                    serie.getData().add(new XYChart.Data<>(rs.getString("nome"), rs.getDouble("total_gasto")));
                 grafico.getData().add(serie);
+            } catch (Exception ex) { resultado.setText("Erro gráfico: " + ex.getMessage()); }
 
-            } catch (Exception ex) {
+            try (Connection con = getConnection(); Statement st = con.createStatement()) {
+                ResultSet rs1 = st.executeQuery("SELECT COUNT(*) AS total FROM aluguel");
+                if (rs1.next()) lbTotalAlugueis.setText("Total de Aluguéis: " + rs1.getInt("total"));
 
-                resultado.setText(
-                        "Erro gráfico: " + ex.getMessage()
-                );
+                ResultSet rs2 = st.executeQuery("SELECT SUM(valor_total) AS receita FROM aluguel");
+                if (rs2.next()) lbReceita.setText("Receita Total: R$ " + rs2.getString("receita"));
 
-            }
-
-            // ===== KPIs =====
-
-            try (
-                    Connection con = getConnection();
-                    Statement st = con.createStatement()
-            ) {
-
-                ResultSet rs1 = st.executeQuery(
-                        "SELECT COUNT(*) AS total FROM aluguel"
-                );
-
-                if (rs1.next()) {
-
-                    lbTotalAlugueis.setText(
-                            "Total de Aluguéis: "
-                                    + rs1.getInt("total")
-                    );
-
-                }
-
-                ResultSet rs2 = st.executeQuery(
-                        "SELECT SUM(valor_total) AS receita FROM aluguel"
-                );
-
-                if (rs2.next()) {
-
-                    lbReceita.setText(
-                            "Receita Total: R$ "
-                                    + rs2.getString("receita")
-                    );
-
-                }
-
-                ResultSet rs3 = st.executeQuery(
-                        "SELECT COUNT(*) AS total FROM cliente"
-                );
-
-                if (rs3.next()) {
-
-                    lbClientes.setText(
-                            "Clientes Ativos: "
-                                    + rs3.getInt("total")
-                    );
-
-                }
-
-            } catch (Exception ex) {
-
-                resultado.setText(
-                        "Erro KPIs: " + ex.getMessage()
-                );
-
-            }
-
+                ResultSet rs3 = st.executeQuery("SELECT COUNT(*) AS total FROM cliente");
+                if (rs3.next()) lbClientes.setText("Clientes Ativos: " + rs3.getInt("total"));
+            } catch (Exception ex) { resultado.setText("Erro KPIs: " + ex.getMessage()); }
         });
 
-        VBox consulta1 = new VBox(
-                10,
-                lbConsulta1,
-                btnConsulta1
-        );
-
-        root.getChildren().addAll(
-
-                consulta1,
-                tabela,
-                grafico,
-                indicadores,
-                resultado
-
-        );
+        VBox consulta1 = new VBox(10, lbConsulta1, btnConsulta1);
+        root.getChildren().addAll(consulta1, tabela, grafico, indicadores, resultado);
 
         ScrollPane scroll = new ScrollPane(root);
-
         scroll.setFitToWidth(true);
-
         return scroll;
     }
 
@@ -530,12 +397,12 @@ public class MainApp extends Application {
 
         tfFuncMatricula.setPromptText("Ex: 31");
         tfFuncNome.setPromptText("Ex: João Silva");
-        tfFuncSalario.setPromptText("Ex: 1412.00");
+        tfFuncSalario.setPromptText("Ex: 3800.00");
         tfFuncCargo.setPromptText("Ex: Atendente");
 
         GridPane form = form(
-            new String[]{"Matrícula:", "Nome:", "Salário:", "Cargo:"},
-            new TextField[]{tfFuncMatricula, tfFuncNome, tfFuncSalario, tfFuncCargo}
+                new String[]{"Matrícula:", "Nome:", "Salário:", "Cargo:"},
+                new TextField[]{tfFuncMatricula, tfFuncNome, tfFuncSalario, tfFuncCargo}
         );
 
         Button salvar = btn("Salvar", () -> {
@@ -549,8 +416,8 @@ public class MainApp extends Application {
             double salario = salStr.isEmpty() ? 1412.00 : Double.parseDouble(salStr);
             try (Connection con = getConnection();
                  PreparedStatement ps = con.prepareStatement(
-                     "INSERT INTO Funcionario (Matricula, Nome, Salario, Cargo) VALUES (?,?,?,?) " +
-                     "ON DUPLICATE KEY UPDATE Nome=VALUES(Nome), Salario=VALUES(Salario), Cargo=VALUES(Cargo)")) {
+                         "INSERT INTO Funcionario (Matricula, Nome, Salario, Cargo) VALUES (?,?,?,?) " +
+                                 "ON DUPLICATE KEY UPDATE Nome=VALUES(Nome), Salario=VALUES(Salario), Cargo=VALUES(Cargo)")) {
                 ps.setInt(1, Integer.parseInt(mat));
                 ps.setString(2, nome);
                 ps.setDouble(3, salario);
@@ -617,8 +484,8 @@ public class MainApp extends Application {
         });
 
         GridPane form = form(
-            new String[]{"CPF:", "Nome:", "Rua:", "Bairro:", "Número:"},
-            new TextField[]{tfCpf, tfNome, tfRua, tfBairro, tfNumero}
+                new String[]{"CPF:", "Nome:", "Rua:", "Bairro:", "Número:"},
+                new TextField[]{tfCpf, tfNome, tfRua, tfBairro, tfNumero}
         );
 
         Button salvar  = btn("Salvar",  () -> salvarCliente());
@@ -637,7 +504,7 @@ public class MainApp extends Application {
     private void salvarCliente() {
         try {
             Cliente c = new Cliente(tfCpf.getText().trim(), tfNome.getText().trim(),
-                tfRua.getText().trim(), tfBairro.getText().trim(), tfNumero.getText().trim());
+                    tfRua.getText().trim(), tfBairro.getText().trim(), tfNumero.getText().trim());
             if (clienteDAO.buscarPorCpf(c.getCpf()) == null) clienteDAO.inserir(c);
             else clienteDAO.atualizar(c);
             carregarClientes();
@@ -687,8 +554,8 @@ public class MainApp extends Application {
         });
 
         GridPane form = form(
-            new String[]{"Chassi:", "Placa:", "Cor:", "Ano Fab.:", "Id Marca:", "CNPJ Seg.:"},
-            new TextField[]{tfChassi, tfPlaca, tfCor, tfAno, tfIdMarca, tfCnpj}
+                new String[]{"Chassi:", "Placa:", "Cor:", "Ano Fab.:", "Id Marca:", "CNPJ Seg.:"},
+                new TextField[]{tfChassi, tfPlaca, tfCor, tfAno, tfIdMarca, tfCnpj}
         );
 
         Button salvar  = btn("Salvar",  () -> salvarVeiculo());
@@ -709,8 +576,8 @@ public class MainApp extends Application {
         try {
             String cnpj = tfCnpj.getText().trim();
             Veiculo v = new Veiculo(tfChassi.getText().trim(), tfPlaca.getText().trim(),
-                tfCor.getText().trim(), Integer.parseInt(tfAno.getText().trim()),
-                Integer.parseInt(tfIdMarca.getText().trim()), cnpj.isEmpty() ? null : cnpj);
+                    tfCor.getText().trim(), Integer.parseInt(tfAno.getText().trim()),
+                    Integer.parseInt(tfIdMarca.getText().trim()), cnpj.isEmpty() ? null : cnpj);
             if (veiculoDAO.buscarPorChassi(v.getChassi()) == null) veiculoDAO.inserir(v);
             else veiculoDAO.atualizar(v);
             carregarVeiculos();
@@ -763,8 +630,8 @@ public class MainApp extends Application {
         tfContratoId.setDisable(true);
 
         GridPane form = form(
-            new String[]{"ID:", "Início (AAAA-MM-DD):", "Fim (AAAA-MM-DD):", "CPF Cliente:", "Matrícula Func.:"},
-            new TextField[]{tfContratoId, tfContratoInicio, tfContratoFim, tfContratoCpf, tfContratoMatricula}
+                new String[]{"ID:", "Início (AAAA-MM-DD):", "Fim (AAAA-MM-DD):", "CPF Cliente:", "Matrícula Func.:"},
+                new TextField[]{tfContratoId, tfContratoInicio, tfContratoFim, tfContratoCpf, tfContratoMatricula}
         );
 
         Button salvar  = btn("Salvar",  () -> salvarContrato());
@@ -783,11 +650,11 @@ public class MainApp extends Application {
 
     private void salvarContrato() {
         try {
-            LocalDate inicio = LocalDate.parse(tfContratoInicio.getText().trim());
-            LocalDate fim    = LocalDate.parse(tfContratoFim.getText().trim());
-            int matricula    = Integer.parseInt(tfContratoMatricula.getText().trim());
-            String cpf       = tfContratoCpf.getText().trim();
-            String idStr     = tfContratoId.getText().trim();
+            LocalDate inicio  = LocalDate.parse(tfContratoInicio.getText().trim());
+            LocalDate fim     = LocalDate.parse(tfContratoFim.getText().trim());
+            int matricula     = Integer.parseInt(tfContratoMatricula.getText().trim());
+            String cpf        = tfContratoCpf.getText().trim();
+            String idStr      = tfContratoId.getText().trim();
             if (idStr.isEmpty()) {
                 contratoDAO.inserir(new Contrato(0, inicio, fim, cpf, matricula));
                 info("Contrato inserido com sucesso!");
@@ -853,8 +720,8 @@ public class MainApp extends Application {
         tfAluguelId.setDisable(true);
 
         GridPane form = form(
-            new String[]{"ID:", "Retirada (AAAA-MM-DD):", "Devolução (AAAA-MM-DD):", "Valor Total:", "Km Saída:", "Km Chegada:", "CPF Cliente:", "Chassi Veículo:"},
-            new TextField[]{tfAluguelId, tfAluguelRetirada, tfAluguelDevolucao, tfAluguelValor, tfAluguelKmSaida, tfAluguelKmChegada, tfAluguelCpf, tfAluguelChassi}
+                new String[]{"ID:", "Retirada (AAAA-MM-DD):", "Devolução (AAAA-MM-DD):", "Valor Total:", "Km Saída:", "Km Chegada:", "CPF Cliente:", "Chassi Veículo:"},
+                new TextField[]{tfAluguelId, tfAluguelRetirada, tfAluguelDevolucao, tfAluguelValor, tfAluguelKmSaida, tfAluguelKmChegada, tfAluguelCpf, tfAluguelChassi}
         );
 
         Button salvar  = btn("Salvar",  () -> salvarAluguel());
@@ -876,12 +743,12 @@ public class MainApp extends Application {
         try {
             LocalDate retirada   = LocalDate.parse(tfAluguelRetirada.getText().trim());
             LocalDate devolucao  = tfAluguelDevolucao.getText().trim().isEmpty() ? null
-                                   : LocalDate.parse(tfAluguelDevolucao.getText().trim());
+                    : LocalDate.parse(tfAluguelDevolucao.getText().trim());
             BigDecimal valor     = tfAluguelValor.getText().trim().isEmpty() ? null
-                                   : new BigDecimal(tfAluguelValor.getText().trim());
+                    : new BigDecimal(tfAluguelValor.getText().trim());
             BigDecimal kmSaida   = new BigDecimal(tfAluguelKmSaida.getText().trim());
             BigDecimal kmChegada = tfAluguelKmChegada.getText().trim().isEmpty() ? null
-                                   : new BigDecimal(tfAluguelKmChegada.getText().trim());
+                    : new BigDecimal(tfAluguelKmChegada.getText().trim());
             String cpf    = tfAluguelCpf.getText().trim();
             String chassi = tfAluguelChassi.getText().trim();
             String idStr  = tfAluguelId.getText().trim();
@@ -951,7 +818,6 @@ public class MainApp extends Application {
         Label titulo = new Label("Dashboard Estatístico — Autocar");
         titulo.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1a365d;");
 
-        // ── Filtro de ano ──────────────────────────────────────
         ComboBox<String> cbAno = new ComboBox<>();
         cbAno.getItems().addAll("Todos", "2024", "2025", "2026");
         cbAno.setValue("2024");
@@ -961,21 +827,18 @@ public class MainApp extends Application {
         HBox filtros = new HBox(10, new Label("Filtrar por ano:"), cbAno, btnAtualizar);
         filtros.setAlignment(Pos.CENTER_LEFT);
 
-        // ── KPI Cards ─────────────────────────────────────────
-        Label kpiClientes = kpiCard("Clientes", "--");
-        Label kpiVeiculos = kpiCard("Veículos", "--");
-        Label kpiAlugueis = kpiCard("Aluguéis", "--");
-        Label kpiReceita  = kpiCard("Receita Total", "--");
-        Label kpiManut    = kpiCard("Custo Manutenção", "--");
-        Label kpiTicket   = kpiCard("Ticket Médio", "--");
-        Label kpiVariancia = kpiCard("Variância", "--");
+        Label kpiClientes  = kpiCard("Clientes",          "--");
+        Label kpiVeiculos  = kpiCard("Veículos",          "--");
+        Label kpiAlugueis  = kpiCard("Aluguéis",          "--");
+        Label kpiReceita   = kpiCard("Receita Total",      "--");
+        Label kpiManut     = kpiCard("Custo Manutenção",  "--");
+        Label kpiTicket    = kpiCard("Ticket Médio",       "--");
+        Label kpiVariancia = kpiCard("Variância",          "--");
 
-        HBox kpiBox = new HBox(10,
-                kpiClientes, kpiVeiculos, kpiAlugueis,
+        HBox kpiBox = new HBox(10, kpiClientes, kpiVeiculos, kpiAlugueis,
                 kpiReceita, kpiManut, kpiTicket, kpiVariancia);
         kpiBox.setAlignment(Pos.CENTER_LEFT);
 
-        // ── Gráfico 1: Receita por mês (LineChart) ────────────
         NumberAxis lxAxis = new NumberAxis(1, 12, 1);
         NumberAxis lyAxis = new NumberAxis();
         lxAxis.setLabel("Mês"); lyAxis.setLabel("Receita (R$)");
@@ -984,14 +847,12 @@ public class MainApp extends Application {
         lcReceita.setLegendVisible(false);
         lcReceita.setPrefSize(470, 300);
 
-        // ── Gráfico 2: Veículos por Cor (PieChart) ───────────
         PieChart pcCores = new PieChart();
         pcCores.setTitle("Gráfico 2 — Veículos por Cor");
         pcCores.setPrefSize(370, 300);
 
         HBox row1 = new HBox(14, lcReceita, pcCores);
 
-        // ── Gráfico 3: Top 5 Clientes (BarChart) ─────────────
         CategoryAxis bx3 = new CategoryAxis(); NumberAxis by3 = new NumberAxis();
         by3.setLabel("R$");
         BarChart<String, Number> bcClientes = new BarChart<>(bx3, by3);
@@ -999,7 +860,6 @@ public class MainApp extends Application {
         bcClientes.setLegendVisible(false);
         bcClientes.setPrefSize(420, 300);
 
-        // ── Gráfico 4: Custo de Manutenção por Tipo (BarChart) ──
         CategoryAxis bx4 = new CategoryAxis(); NumberAxis by4 = new NumberAxis();
         by4.setLabel("R$");
         BarChart<String, Number> bcManut = new BarChart<>(bx4, by4);
@@ -1009,7 +869,6 @@ public class MainApp extends Application {
 
         HBox row2 = new HBox(14, bcClientes, bcManut);
 
-        // ── Gráfico 5: Estatísticas (BarChart) ───────────────
         CategoryAxis bx5 = new CategoryAxis(); NumberAxis by5 = new NumberAxis();
         by5.setLabel("R$");
         BarChart<String, Number> bcStats = new BarChart<>(bx5, by5);
@@ -1017,7 +876,6 @@ public class MainApp extends Application {
         bcStats.setLegendVisible(false);
         bcStats.setPrefSize(420, 300);
 
-        // ── Gráfico 6: Veículos por Segmento de Marca (PieChart) ─
         PieChart pcSegmento = new PieChart();
         pcSegmento.setTitle("Gráfico 6 — Veículos por Segmento");
         pcSegmento.setPrefSize(370, 300);
@@ -1046,9 +904,9 @@ public class MainApp extends Application {
     private Label kpiCard(String titulo, String valor) {
         Label l = new Label(titulo + "\n" + valor);
         l.setStyle("-fx-background-color: #2b6cb0; -fx-text-fill: white; " +
-                   "-fx-font-size: 12px; -fx-font-weight: bold; " +
-                   "-fx-padding: 10 14; -fx-background-radius: 8; " +
-                   "-fx-alignment: center; -fx-text-alignment: center;");
+                "-fx-font-size: 12px; -fx-font-weight: bold; " +
+                "-fx-padding: 10 14; -fx-background-radius: 8; " +
+                "-fx-alignment: center; -fx-text-alignment: center;");
         l.setMinWidth(115); l.setMinHeight(60);
         return l;
     }
@@ -1063,11 +921,10 @@ public class MainApp extends Application {
 
         try (Connection con = getConnection()) {
 
-            boolean filtraAno = !anoFiltro.equals("Todos");
+            boolean filtraAno   = !anoFiltro.equals("Todos");
             String whereAluguel = filtraAno ? " WHERE YEAR(Data_Retirada) = " + anoFiltro : "";
-            String whereManut   = filtraAno ? " WHERE YEAR(Data_Entrada) = " + anoFiltro : "";
+            String whereManut   = filtraAno ? " WHERE YEAR(Data_Entrada) = "  + anoFiltro : "";
 
-            // ── KPIs ──────────────────────────────────────────
             try (Statement st = con.createStatement()) {
                 ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM Cliente");
                 if (rs.next()) kpiClientes.setText("Clientes\n" + rs.getInt(1));
@@ -1088,10 +945,9 @@ public class MainApp extends Application {
                 if (rs.next()) kpiTicket.setText("Ticket Médio\nR$ " + String.format("%.2f", rs.getDouble(1)));
             }
 
-            // ── Gráfico 1: Receita Mensal (LineChart) ─────────
             lcReceita.getData().clear();
             XYChart.Series<Number, Number> serieReceita = new XYChart.Series<>();
-            String condAno = filtraAno ? " WHERE YEAR(Data_Retirada) = " + anoFiltro : "";
+            String condAno   = filtraAno ? " WHERE YEAR(Data_Retirada) = " + anoFiltro : "";
             String sqlReceita = "SELECT MONTH(Data_Retirada) AS mes, SUM(Valor_Total) AS receita " +
                     "FROM Aluguel" + condAno + " GROUP BY mes ORDER BY mes";
             try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery(sqlReceita)) {
@@ -1100,7 +956,6 @@ public class MainApp extends Application {
             }
             lcReceita.getData().add(serieReceita);
 
-            // ── Gráfico 2: PieChart — Veículos por Cor ────────
             pcCores.getData().clear();
             try (Statement st = con.createStatement();
                  ResultSet rs = st.executeQuery(
@@ -1109,7 +964,6 @@ public class MainApp extends Application {
                     pcCores.getData().add(new PieChart.Data(rs.getString("Cor"), rs.getInt("qtd")));
             }
 
-            // ── Gráfico 3: Top 5 Clientes ─────────────────────
             bcClientes.getData().clear();
             XYChart.Series<String, Number> serieClientes = new XYChart.Series<>();
             String sqlClientes = "SELECT c.Nome, COALESCE(SUM(a.Valor_Total),0) AS total " +
@@ -1119,13 +973,12 @@ public class MainApp extends Application {
             try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery(sqlClientes)) {
                 while (rs.next()) {
                     String nome = rs.getString("Nome");
-                    String primeiroNome = nome.split(" ")[0];
-                    serieClientes.getData().add(new XYChart.Data<>(primeiroNome, rs.getDouble("total")));
+                    String primeiro = nome.split(" ")[0];
+                    serieClientes.getData().add(new XYChart.Data<>(primeiro, rs.getDouble("total")));
                 }
             }
             bcClientes.getData().add(serieClientes);
 
-            // ── Gráfico 4: Custo por Tipo de Manutenção ───────
             bcManut.getData().clear();
             XYChart.Series<String, Number> serieManut = new XYChart.Series<>();
             String sqlManut = "SELECT Tipo_Servico, SUM(Custo) AS total FROM Manutencao" +
@@ -1139,8 +992,6 @@ public class MainApp extends Application {
             }
             bcManut.getData().add(serieManut);
 
-            // ── Gráfico 5: Estatísticas de Aluguel ────────────
-            // Busca todos os valores para calcular mediana e moda em Java
             List<Double> valores = new ArrayList<>();
             String sqlVals = "SELECT Valor_Total FROM Aluguel WHERE Valor_Total IS NOT NULL" +
                     (filtraAno ? " AND YEAR(Data_Retirada) = " + anoFiltro : "") +
@@ -1168,20 +1019,19 @@ public class MainApp extends Application {
                 kpiVariancia.setText("Variância\n" + String.format("%.2f", variancia));
 
                 XYChart.Series<String, Number> serieStats = new XYChart.Series<>();
-                serieStats.getData().add(new XYChart.Data<>("Média", media));
-                serieStats.getData().add(new XYChart.Data<>("Mediana", mediana));
-                serieStats.getData().add(new XYChart.Data<>("Moda", moda));
+                serieStats.getData().add(new XYChart.Data<>("Média",         media));
+                serieStats.getData().add(new XYChart.Data<>("Mediana",       mediana));
+                serieStats.getData().add(new XYChart.Data<>("Moda",          moda));
                 serieStats.getData().add(new XYChart.Data<>("Desvio Padrão", desvioPadrao));
                 bcStats.getData().add(serieStats);
             }
 
-            // ── Gráfico 6: PieChart — Veículos por Segmento ───
             pcSegmento.getData().clear();
             try (Statement st = con.createStatement();
                  ResultSet rs = st.executeQuery(
                          "SELECT m.Segmento, COUNT(v.Chassi) AS qtd " +
-                         "FROM Veiculo v JOIN Marca m ON v.Id_Marca = m.ID_Marca " +
-                         "GROUP BY m.Segmento ORDER BY qtd DESC")) {
+                                 "FROM Veiculo v JOIN Marca m ON v.Id_Marca = m.ID_Marca " +
+                                 "GROUP BY m.Segmento ORDER BY qtd DESC")) {
                 while (rs.next())
                     pcSegmento.getData().add(new PieChart.Data(rs.getString("Segmento"), rs.getInt("qtd")));
             }
