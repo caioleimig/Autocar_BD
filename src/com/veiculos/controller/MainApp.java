@@ -19,11 +19,17 @@ import javafx.scene.layout.*;
 import javafx.stage.Stage;
 import javafx.scene.chart.BarChart;
 import javafx.scene.chart.CategoryAxis;
+import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.PieChart;
 import javafx.scene.chart.XYChart;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class MainApp extends Application {
 
@@ -82,7 +88,8 @@ public class MainApp extends Application {
             new Tab("Contratos",    buildContratoTab()),
             new Tab("Aluguéis",     buildAluguelTab()),
             new Tab("Operações BD", buildOperacoesTab()),
-            new Tab("Consultas e Views", buildConsultasViewsTab())
+            new Tab("Consultas e Views", buildConsultasViewsTab()),
+            new Tab("Dashboard",    buildDashboardTab())
         );
 
         stage.setScene(new Scene(tabs, 980, 660));
@@ -842,6 +849,254 @@ public class MainApp extends Application {
     private void erro(String msg) {
         Alert a = new Alert(Alert.AlertType.ERROR);
         a.setHeaderText("Erro"); a.setContentText(msg); a.showAndWait();
+    }
+
+    // ── DASHBOARD ─────────────────────────────────────────────
+    private ScrollPane buildDashboardTab() {
+        VBox root = new VBox(16);
+        root.setPadding(new Insets(16));
+
+        Label titulo = new Label("Dashboard Estatístico — Autocar");
+        titulo.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #1a365d;");
+
+        // ── Filtro de ano ──────────────────────────────────────
+        ComboBox<String> cbAno = new ComboBox<>();
+        cbAno.getItems().addAll("Todos", "2024", "2025", "2026");
+        cbAno.setValue("2024");
+        Button btnAtualizar = new Button("Atualizar Dashboard");
+        btnAtualizar.setStyle("-fx-background-color: #2b6cb0; -fx-text-fill: white; -fx-cursor: hand;");
+
+        HBox filtros = new HBox(10, new Label("Filtrar por ano:"), cbAno, btnAtualizar);
+        filtros.setAlignment(Pos.CENTER_LEFT);
+
+        // ── KPI Cards ─────────────────────────────────────────
+        Label kpiClientes = kpiCard("Clientes", "--");
+        Label kpiVeiculos = kpiCard("Veículos", "--");
+        Label kpiAlugueis = kpiCard("Aluguéis", "--");
+        Label kpiReceita  = kpiCard("Receita Total", "--");
+        Label kpiManut    = kpiCard("Custo Manutenção", "--");
+        Label kpiTicket   = kpiCard("Ticket Médio", "--");
+        Label kpiVariancia = kpiCard("Variância", "--");
+
+        HBox kpiBox = new HBox(10,
+                kpiClientes, kpiVeiculos, kpiAlugueis,
+                kpiReceita, kpiManut, kpiTicket, kpiVariancia);
+        kpiBox.setAlignment(Pos.CENTER_LEFT);
+
+        // ── Gráfico 1: Receita por mês (LineChart) ────────────
+        NumberAxis lxAxis = new NumberAxis(1, 12, 1);
+        NumberAxis lyAxis = new NumberAxis();
+        lxAxis.setLabel("Mês"); lyAxis.setLabel("Receita (R$)");
+        LineChart<Number, Number> lcReceita = new LineChart<>(lxAxis, lyAxis);
+        lcReceita.setTitle("Gráfico 1 — Receita Mensal");
+        lcReceita.setLegendVisible(false);
+        lcReceita.setPrefSize(470, 300);
+
+        // ── Gráfico 2: Veículos por Cor (PieChart) ───────────
+        PieChart pcCores = new PieChart();
+        pcCores.setTitle("Gráfico 2 — Veículos por Cor");
+        pcCores.setPrefSize(370, 300);
+
+        HBox row1 = new HBox(14, lcReceita, pcCores);
+
+        // ── Gráfico 3: Top 5 Clientes (BarChart) ─────────────
+        CategoryAxis bx3 = new CategoryAxis(); NumberAxis by3 = new NumberAxis();
+        by3.setLabel("R$");
+        BarChart<String, Number> bcClientes = new BarChart<>(bx3, by3);
+        bcClientes.setTitle("Gráfico 3 — Top 5 Clientes por Gasto");
+        bcClientes.setLegendVisible(false);
+        bcClientes.setPrefSize(420, 300);
+
+        // ── Gráfico 4: Custo de Manutenção por Tipo (BarChart) ──
+        CategoryAxis bx4 = new CategoryAxis(); NumberAxis by4 = new NumberAxis();
+        by4.setLabel("R$");
+        BarChart<String, Number> bcManut = new BarChart<>(bx4, by4);
+        bcManut.setTitle("Gráfico 4 — Custo por Tipo de Manutenção");
+        bcManut.setLegendVisible(false);
+        bcManut.setPrefSize(420, 300);
+
+        HBox row2 = new HBox(14, bcClientes, bcManut);
+
+        // ── Gráfico 5: Estatísticas (BarChart) ───────────────
+        CategoryAxis bx5 = new CategoryAxis(); NumberAxis by5 = new NumberAxis();
+        by5.setLabel("R$");
+        BarChart<String, Number> bcStats = new BarChart<>(bx5, by5);
+        bcStats.setTitle("Gráfico 5 — Estatísticas de Valor de Aluguel");
+        bcStats.setLegendVisible(false);
+        bcStats.setPrefSize(420, 300);
+
+        // ── Gráfico 6: Veículos por Segmento de Marca (PieChart) ─
+        PieChart pcSegmento = new PieChart();
+        pcSegmento.setTitle("Gráfico 6 — Veículos por Segmento");
+        pcSegmento.setPrefSize(370, 300);
+
+        HBox row3 = new HBox(14, bcStats, pcSegmento);
+
+        root.getChildren().addAll(titulo, filtros, kpiBox,
+                new Separator(), row1,
+                new Separator(), row2,
+                new Separator(), row3);
+
+        ScrollPane scroll = new ScrollPane(root);
+        scroll.setFitToWidth(true);
+
+        Runnable carregar = () -> carregarDashboard(
+                cbAno.getValue(),
+                kpiClientes, kpiVeiculos, kpiAlugueis, kpiReceita, kpiManut, kpiTicket, kpiVariancia,
+                lcReceita, pcCores, bcClientes, bcManut, bcStats, pcSegmento);
+
+        btnAtualizar.setOnAction(e -> carregar.run());
+        carregar.run();
+
+        return scroll;
+    }
+
+    private Label kpiCard(String titulo, String valor) {
+        Label l = new Label(titulo + "\n" + valor);
+        l.setStyle("-fx-background-color: #2b6cb0; -fx-text-fill: white; " +
+                   "-fx-font-size: 12px; -fx-font-weight: bold; " +
+                   "-fx-padding: 10 14; -fx-background-radius: 8; " +
+                   "-fx-alignment: center; -fx-text-alignment: center;");
+        l.setMinWidth(115); l.setMinHeight(60);
+        return l;
+    }
+
+    private void carregarDashboard(
+            String anoFiltro,
+            Label kpiClientes, Label kpiVeiculos, Label kpiAlugueis,
+            Label kpiReceita, Label kpiManut, Label kpiTicket, Label kpiVariancia,
+            LineChart<Number, Number> lcReceita, PieChart pcCores,
+            BarChart<String, Number> bcClientes, BarChart<String, Number> bcManut,
+            BarChart<String, Number> bcStats, PieChart pcSegmento) {
+
+        try (Connection con = getConnection()) {
+
+            boolean filtraAno = !anoFiltro.equals("Todos");
+            String whereAluguel = filtraAno ? " WHERE YEAR(Data_Retirada) = " + anoFiltro : "";
+            String whereManut   = filtraAno ? " WHERE YEAR(Data_Entrada) = " + anoFiltro : "";
+
+            // ── KPIs ──────────────────────────────────────────
+            try (Statement st = con.createStatement()) {
+                ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM Cliente");
+                if (rs.next()) kpiClientes.setText("Clientes\n" + rs.getInt(1));
+
+                rs = st.executeQuery("SELECT COUNT(*) FROM Veiculo");
+                if (rs.next()) kpiVeiculos.setText("Veículos\n" + rs.getInt(1));
+
+                rs = st.executeQuery("SELECT COUNT(*) FROM Aluguel" + whereAluguel);
+                if (rs.next()) kpiAlugueis.setText("Aluguéis\n" + rs.getInt(1));
+
+                rs = st.executeQuery("SELECT COALESCE(SUM(Valor_Total),0) FROM Aluguel" + whereAluguel);
+                if (rs.next()) kpiReceita.setText("Receita Total\nR$ " + String.format("%.2f", rs.getDouble(1)));
+
+                rs = st.executeQuery("SELECT COALESCE(SUM(Custo),0) FROM Manutencao" + whereManut);
+                if (rs.next()) kpiManut.setText("Custo Manutenção\nR$ " + String.format("%.2f", rs.getDouble(1)));
+
+                rs = st.executeQuery("SELECT COALESCE(AVG(Valor_Total),0) FROM Aluguel" + whereAluguel);
+                if (rs.next()) kpiTicket.setText("Ticket Médio\nR$ " + String.format("%.2f", rs.getDouble(1)));
+            }
+
+            // ── Gráfico 1: Receita Mensal (LineChart) ─────────
+            lcReceita.getData().clear();
+            XYChart.Series<Number, Number> serieReceita = new XYChart.Series<>();
+            String condAno = filtraAno ? " WHERE YEAR(Data_Retirada) = " + anoFiltro : "";
+            String sqlReceita = "SELECT MONTH(Data_Retirada) AS mes, SUM(Valor_Total) AS receita " +
+                    "FROM Aluguel" + condAno + " GROUP BY mes ORDER BY mes";
+            try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery(sqlReceita)) {
+                while (rs.next())
+                    serieReceita.getData().add(new XYChart.Data<>(rs.getInt("mes"), rs.getDouble("receita")));
+            }
+            lcReceita.getData().add(serieReceita);
+
+            // ── Gráfico 2: PieChart — Veículos por Cor ────────
+            pcCores.getData().clear();
+            try (Statement st = con.createStatement();
+                 ResultSet rs = st.executeQuery(
+                         "SELECT Cor, COUNT(*) AS qtd FROM Veiculo GROUP BY Cor ORDER BY qtd DESC")) {
+                while (rs.next())
+                    pcCores.getData().add(new PieChart.Data(rs.getString("Cor"), rs.getInt("qtd")));
+            }
+
+            // ── Gráfico 3: Top 5 Clientes ─────────────────────
+            bcClientes.getData().clear();
+            XYChart.Series<String, Number> serieClientes = new XYChart.Series<>();
+            String sqlClientes = "SELECT c.Nome, COALESCE(SUM(a.Valor_Total),0) AS total " +
+                    "FROM Aluguel a JOIN Cliente c ON a.CPF_Cliente = c.CPF " +
+                    (filtraAno ? "WHERE YEAR(a.Data_Retirada) = " + anoFiltro + " " : "") +
+                    "GROUP BY c.Nome ORDER BY total DESC LIMIT 5";
+            try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery(sqlClientes)) {
+                while (rs.next()) {
+                    String nome = rs.getString("Nome");
+                    String primeiroNome = nome.split(" ")[0];
+                    serieClientes.getData().add(new XYChart.Data<>(primeiroNome, rs.getDouble("total")));
+                }
+            }
+            bcClientes.getData().add(serieClientes);
+
+            // ── Gráfico 4: Custo por Tipo de Manutenção ───────
+            bcManut.getData().clear();
+            XYChart.Series<String, Number> serieManut = new XYChart.Series<>();
+            String sqlManut = "SELECT Tipo_Servico, SUM(Custo) AS total FROM Manutencao" +
+                    whereManut + " GROUP BY Tipo_Servico ORDER BY total DESC LIMIT 6";
+            try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery(sqlManut)) {
+                while (rs.next()) {
+                    String tipo = rs.getString("Tipo_Servico");
+                    if (tipo.length() > 16) tipo = tipo.substring(0, 16) + "…";
+                    serieManut.getData().add(new XYChart.Data<>(tipo, rs.getDouble("total")));
+                }
+            }
+            bcManut.getData().add(serieManut);
+
+            // ── Gráfico 5: Estatísticas de Aluguel ────────────
+            // Busca todos os valores para calcular mediana e moda em Java
+            List<Double> valores = new ArrayList<>();
+            String sqlVals = "SELECT Valor_Total FROM Aluguel WHERE Valor_Total IS NOT NULL" +
+                    (filtraAno ? " AND YEAR(Data_Retirada) = " + anoFiltro : "") +
+                    " ORDER BY Valor_Total";
+            try (Statement st = con.createStatement(); ResultSet rs = st.executeQuery(sqlVals)) {
+                while (rs.next()) valores.add(rs.getDouble("Valor_Total"));
+            }
+
+            bcStats.getData().clear();
+            if (!valores.isEmpty()) {
+                double media = valores.stream().mapToDouble(d -> d).average().orElse(0);
+                int n = valores.size();
+                double mediana = (n % 2 == 0)
+                        ? (valores.get(n / 2 - 1) + valores.get(n / 2)) / 2.0
+                        : valores.get(n / 2);
+                Map<Double, Long> freq = valores.stream()
+                        .collect(Collectors.groupingBy(d -> d, Collectors.counting()));
+                double moda = freq.entrySet().stream()
+                        .max(Map.Entry.comparingByValue())
+                        .map(Map.Entry::getKey).orElse(0.0);
+                double variancia = valores.stream()
+                        .mapToDouble(d -> Math.pow(d - media, 2)).average().orElse(0);
+                double desvioPadrao = Math.sqrt(variancia);
+
+                kpiVariancia.setText("Variância\n" + String.format("%.2f", variancia));
+
+                XYChart.Series<String, Number> serieStats = new XYChart.Series<>();
+                serieStats.getData().add(new XYChart.Data<>("Média", media));
+                serieStats.getData().add(new XYChart.Data<>("Mediana", mediana));
+                serieStats.getData().add(new XYChart.Data<>("Moda", moda));
+                serieStats.getData().add(new XYChart.Data<>("Desvio Padrão", desvioPadrao));
+                bcStats.getData().add(serieStats);
+            }
+
+            // ── Gráfico 6: PieChart — Veículos por Segmento ───
+            pcSegmento.getData().clear();
+            try (Statement st = con.createStatement();
+                 ResultSet rs = st.executeQuery(
+                         "SELECT m.Segmento, COUNT(v.Chassi) AS qtd " +
+                         "FROM Veiculo v JOIN Marca m ON v.Id_Marca = m.ID_Marca " +
+                         "GROUP BY m.Segmento ORDER BY qtd DESC")) {
+                while (rs.next())
+                    pcSegmento.getData().add(new PieChart.Data(rs.getString("Segmento"), rs.getInt("qtd")));
+            }
+
+        } catch (Exception ex) {
+            erro("Erro ao carregar dashboard: " + ex.getMessage());
+        }
     }
 
     public static void main(String[] args) { launch(args); }
