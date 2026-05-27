@@ -19,6 +19,7 @@ import javafx.scene.layout.*;
 import javafx.stage.Stage;
 
 import java.math.BigDecimal;
+import java.sql.*;
 import java.time.LocalDate;
 
 public class MainApp extends Application {
@@ -48,23 +49,23 @@ public class MainApp extends Application {
     private TableView<Veiculo> tabelaVeiculo;
 
     // ── Contrato fields ───────────────────────────────────────
-    private final TextField tfContratoId       = new TextField();
-    private final TextField tfContratoInicio   = new TextField();
-    private final TextField tfContratoFim      = new TextField();
-    private final TextField tfContratoCpf      = new TextField();
+    private final TextField tfContratoId        = new TextField();
+    private final TextField tfContratoInicio    = new TextField();
+    private final TextField tfContratoFim       = new TextField();
+    private final TextField tfContratoCpf       = new TextField();
     private final TextField tfContratoMatricula = new TextField();
     private final ObservableList<Contrato> contratoData = FXCollections.observableArrayList();
     private TableView<Contrato> tabelaContrato;
 
     // ── Aluguel fields ────────────────────────────────────────
-    private final TextField tfAluguelId         = new TextField();
-    private final TextField tfAluguelRetirada   = new TextField();
-    private final TextField tfAluguelDevolucao  = new TextField();
-    private final TextField tfAluguelValor      = new TextField();
-    private final TextField tfAluguelKmSaida    = new TextField();
-    private final TextField tfAluguelKmChegada  = new TextField();
-    private final TextField tfAluguelCpf        = new TextField();
-    private final TextField tfAluguelChassi     = new TextField();
+    private final TextField tfAluguelId        = new TextField();
+    private final TextField tfAluguelRetirada  = new TextField();
+    private final TextField tfAluguelDevolucao = new TextField();
+    private final TextField tfAluguelValor     = new TextField();
+    private final TextField tfAluguelKmSaida   = new TextField();
+    private final TextField tfAluguelKmChegada = new TextField();
+    private final TextField tfAluguelCpf       = new TextField();
+    private final TextField tfAluguelChassi    = new TextField();
     private final ObservableList<Aluguel> aluguelData = FXCollections.observableArrayList();
     private TableView<Aluguel> tabelaAluguel;
 
@@ -73,13 +74,14 @@ public class MainApp extends Application {
         TabPane tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         tabs.getTabs().addAll(
-            new Tab("Clientes",  buildClienteTab()),
-            new Tab("Veículos",  buildVeiculoTab()),
-            new Tab("Contratos", buildContratoTab()),
-            new Tab("Aluguéis",  buildAluguelTab())
+            new Tab("Clientes",     buildClienteTab()),
+            new Tab("Veículos",     buildVeiculoTab()),
+            new Tab("Contratos",    buildContratoTab()),
+            new Tab("Aluguéis",     buildAluguelTab()),
+            new Tab("Operações BD", buildOperacoesTab())
         );
 
-        stage.setScene(new Scene(tabs, 950, 620));
+        stage.setScene(new Scene(tabs, 980, 660));
         stage.setTitle("Sistema de Veículos e Contratos");
         stage.show();
 
@@ -87,6 +89,188 @@ public class MainApp extends Application {
         carregarVeiculos();
         carregarContratos();
         carregarAlugueis();
+    }
+
+    // ── OPERAÇÕES BD ──────────────────────────────────────────
+    private ScrollPane buildOperacoesTab() {
+        VBox root = new VBox(18);
+        root.setPadding(new Insets(14));
+
+        TextArea taResultado = new TextArea();
+        taResultado.setEditable(false);
+        taResultado.setPrefHeight(160);
+        taResultado.setWrapText(true);
+        taResultado.setPromptText("Resultado das operações aparecerá aqui...");
+
+        // ── FUNÇÕES ──────────────────────────────────────────
+        TitledPane painelFuncoes = new TitledPane();
+        painelFuncoes.setText("Funções");
+
+        VBox vFuncoes = new VBox(10);
+        vFuncoes.setPadding(new Insets(8));
+
+        Label lbFn1 = new Label("fn_classificar_aluguel — calcula valor do aluguel por km rodado:");
+        TextField tfKmSaidaFn = new TextField(); tfKmSaidaFn.setPromptText("Km Saída");    tfKmSaidaFn.setPrefWidth(120);
+        TextField tfKmChegFn  = new TextField(); tfKmChegFn.setPromptText("Km Chegada");   tfKmChegFn.setPrefWidth(120);
+        TextField tfDiariaFn  = new TextField(); tfDiariaFn.setPromptText("Diária base");  tfDiariaFn.setPrefWidth(120);
+        Button btnFn1 = new Button("Calcular");
+        btnFn1.setOnAction(e -> {
+            try (Connection con = getConnection();
+                 PreparedStatement ps = con.prepareStatement(
+                         "SELECT fn_classificar_aluguel(?, ?, ?) AS resultado")) {
+                ps.setBigDecimal(1, new BigDecimal(tfKmSaidaFn.getText().trim()));
+                ps.setBigDecimal(2, new BigDecimal(tfKmChegFn.getText().trim()));
+                ps.setBigDecimal(3, new BigDecimal(tfDiariaFn.getText().trim()));
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) taResultado.setText("fn_classificar_aluguel → R$ " + rs.getString("resultado"));
+            } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
+        });
+        HBox rowFn1 = new HBox(8, tfKmSaidaFn, tfKmChegFn, tfDiariaFn, btnFn1);
+        rowFn1.setAlignment(Pos.CENTER_LEFT);
+
+        Label lbFn2 = new Label("fn_total_gasto_cliente — total gasto em aluguéis por CPF:");
+        TextField tfCpfFn2 = new TextField(); tfCpfFn2.setPromptText("CPF (11 dígitos)"); tfCpfFn2.setPrefWidth(180);
+        Button btnFn2 = new Button("Consultar");
+        btnFn2.setOnAction(e -> {
+            try (Connection con = getConnection();
+                 PreparedStatement ps = con.prepareStatement(
+                         "SELECT fn_total_gasto_cliente(?) AS resultado")) {
+                ps.setString(1, tfCpfFn2.getText().trim());
+                ResultSet rs = ps.executeQuery();
+                if (rs.next()) taResultado.setText("fn_total_gasto_cliente → R$ " + rs.getString("resultado"));
+            } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
+        });
+        HBox rowFn2 = new HBox(8, tfCpfFn2, btnFn2);
+        rowFn2.setAlignment(Pos.CENTER_LEFT);
+
+        vFuncoes.getChildren().addAll(lbFn1, rowFn1, new Separator(), lbFn2, rowFn2);
+        painelFuncoes.setContent(vFuncoes);
+
+        // ── PROCEDURES ───────────────────────────────────────
+        TitledPane painelProc = new TitledPane();
+        painelProc.setText("Procedimentos");
+
+        VBox vProc = new VBox(10);
+        vProc.setPadding(new Insets(8));
+
+        Label lbProc1 = new Label("sp_registrar_devolucao — registra devolução e calcula valor (R$80/dia + R$1,50/km):");
+        TextField tfProcId   = new TextField(); tfProcId.setPromptText("ID Aluguel");             tfProcId.setPrefWidth(110);
+        TextField tfProcData = new TextField(); tfProcData.setPromptText("Data dev. AAAA-MM-DD"); tfProcData.setPrefWidth(160);
+        TextField tfProcKm   = new TextField(); tfProcKm.setPromptText("Km Chegada");             tfProcKm.setPrefWidth(110);
+        Button btnProc1 = new Button("Registrar Devolução");
+        btnProc1.setOnAction(e -> {
+            try (Connection con = getConnection();
+                 CallableStatement cs = con.prepareCall("{CALL sp_registrar_devolucao(?, ?, ?)}")) {
+                cs.setInt(1, Integer.parseInt(tfProcId.getText().trim()));
+                cs.setDate(2, java.sql.Date.valueOf(tfProcData.getText().trim()));
+                cs.setBigDecimal(3, new BigDecimal(tfProcKm.getText().trim()));
+                ResultSet rs = cs.executeQuery();
+                if (rs.next()) taResultado.setText("sp_registrar_devolucao → " + rs.getString("resultado"));
+                carregarAlugueis();
+            } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
+        });
+        HBox rowProc1 = new HBox(8, tfProcId, tfProcData, tfProcKm, btnProc1);
+        rowProc1.setAlignment(Pos.CENTER_LEFT);
+
+        Label lbProc2 = new Label("sp_reajuste_salarial — aplica reajuste escalonado por cargo em todos os funcionários:");
+        Button btnProc2 = new Button("Aplicar Reajuste Salarial");
+        btnProc2.setOnAction(e -> {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Confirma o reajuste salarial para todos os funcionários?",
+                    ButtonType.YES, ButtonType.NO);
+            confirm.setHeaderText(null);
+            confirm.showAndWait().ifPresent(bt -> {
+                if (bt == ButtonType.YES) {
+                    try (Connection con = getConnection();
+                         CallableStatement cs = con.prepareCall("{CALL sp_reajuste_salarial()}")) {
+                        ResultSet rs = cs.executeQuery();
+                        if (rs.next()) taResultado.setText("sp_reajuste_salarial → " + rs.getString("resultado"));
+                    } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
+                }
+            });
+        });
+
+        vProc.getChildren().addAll(lbProc1, rowProc1, new Separator(), lbProc2, btnProc2);
+        painelProc.setContent(vProc);
+
+        // ── TRIGGERS ─────────────────────────────────────────
+        TitledPane painelTrig = new TitledPane();
+        painelTrig.setText("Triggers — visualizar efeitos");
+
+        VBox vTrig = new VBox(10);
+        vTrig.setPadding(new Insets(8));
+
+        Label lbTrig1 = new Label("trg_log_alteracao_salario — disparado após UPDATE de salário. Log registrado:");
+        TableView<ObservableList<String>> tabelaLog = buildTabelaDinamica();
+        Button btnTrig1 = new Button("Atualizar Log de Salários");
+        btnTrig1.setOnAction(e -> {
+            try (Connection con = getConnection();
+                 Statement st = con.createStatement();
+                 ResultSet rs = st.executeQuery(
+                         "SELECT Id_Log, Matricula_Func, Salario_Antigo, Salario_Novo, Data_Alteracao " +
+                         "FROM Log_Salario ORDER BY Data_Alteracao DESC LIMIT 50")) {
+                preencherTabela(tabelaLog, rs);
+                taResultado.setText("Log_Salario carregado (" + tabelaLog.getItems().size() + " registros).");
+            } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
+        });
+
+        Label lbTrig2 = new Label("trg_bloquear_aluguel_em_manutencao — veículos bloqueados (em manutenção aberta):");
+        TableView<ObservableList<String>> tabelaManut = buildTabelaDinamica();
+        Button btnTrig2 = new Button("Ver Veículos Bloqueados");
+        btnTrig2.setOnAction(e -> {
+            try (Connection con = getConnection();
+                 Statement st = con.createStatement();
+                 ResultSet rs = st.executeQuery(
+                         "SELECT v.Chassi, v.Placa, v.Cor, m.Tipo_Servico, m.Data_Entrada " +
+                         "FROM Manutencao m JOIN Veiculo v ON m.Chassi_Veiculo = v.Chassi " +
+                         "WHERE m.Data_Saida IS NULL ORDER BY m.Data_Entrada DESC")) {
+                preencherTabela(tabelaManut, rs);
+                taResultado.setText("Veículos bloqueados: " + tabelaManut.getItems().size());
+            } catch (Exception ex) { taResultado.setText("Erro: " + ex.getMessage()); }
+        });
+
+        vTrig.getChildren().addAll(lbTrig1, btnTrig1, tabelaLog,
+                new Separator(), lbTrig2, btnTrig2, tabelaManut);
+        painelTrig.setContent(vTrig);
+
+        TitledPane painelResult = new TitledPane("Resultado", taResultado);
+        painelResult.setCollapsible(false);
+
+        root.getChildren().addAll(painelFuncoes, painelProc, painelTrig, painelResult);
+        ScrollPane scroll = new ScrollPane(root);
+        scroll.setFitToWidth(true);
+        return scroll;
+    }
+
+    @SuppressWarnings("unchecked")
+    private TableView<ObservableList<String>> buildTabelaDinamica() {
+        TableView<ObservableList<String>> tv = new TableView<>();
+        tv.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        tv.setPrefHeight(150);
+        return tv;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void preencherTabela(TableView<ObservableList<String>> tv, ResultSet rs) throws SQLException {
+        tv.getColumns().clear();
+        tv.getItems().clear();
+        ResultSetMetaData meta = rs.getMetaData();
+        int cols = meta.getColumnCount();
+        for (int i = 1; i <= cols; i++) {
+            final int idx = i - 1;
+            TableColumn<ObservableList<String>, String> col = new TableColumn<>(meta.getColumnLabel(i));
+            col.setCellValueFactory(data -> new SimpleStringProperty(data.getValue().get(idx)));
+            tv.getColumns().add(col);
+        }
+        while (rs.next()) {
+            ObservableList<String> row = FXCollections.observableArrayList();
+            for (int i = 1; i <= cols; i++) row.add(rs.getString(i));
+            tv.getItems().add(row);
+        }
+    }
+
+    private Connection getConnection() throws SQLException {
+        return com.veiculos.util.DBConnection.getConnection();
     }
 
     // ── CLIENTE ───────────────────────────────────────────────
@@ -228,10 +412,10 @@ public class MainApp extends Application {
         tabelaContrato = new TableView<>(contratoData);
         tabelaContrato.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
-        TableColumn<Contrato,String> cId       = new TableColumn<>("ID");
-        TableColumn<Contrato,String> cInicio   = new TableColumn<>("Início");
-        TableColumn<Contrato,String> cFim      = new TableColumn<>("Fim");
-        TableColumn<Contrato,String> cCpf      = new TableColumn<>("CPF Cliente");
+        TableColumn<Contrato,String> cId        = new TableColumn<>("ID");
+        TableColumn<Contrato,String> cInicio    = new TableColumn<>("Início");
+        TableColumn<Contrato,String> cFim       = new TableColumn<>("Fim");
+        TableColumn<Contrato,String> cCpf       = new TableColumn<>("CPF Cliente");
         TableColumn<Contrato,String> cMatricula = new TableColumn<>("Matrícula Func.");
 
         cId.setCellValueFactory(d        -> new SimpleStringProperty(String.valueOf(d.getValue().getIdContrato())));
@@ -252,7 +436,7 @@ public class MainApp extends Application {
             }
         });
 
-        tfContratoId.setDisable(true); // ID é gerado pelo banco
+        tfContratoId.setDisable(true);
 
         GridPane form = form(
             new String[]{"ID:", "Início (AAAA-MM-DD):", "Fim (AAAA-MM-DD):", "CPF Cliente:", "Matrícula Func.:"},
@@ -279,14 +463,11 @@ public class MainApp extends Application {
             LocalDate fim    = LocalDate.parse(tfContratoFim.getText().trim());
             int matricula    = Integer.parseInt(tfContratoMatricula.getText().trim());
             String cpf       = tfContratoCpf.getText().trim();
-
-            String idStr = tfContratoId.getText().trim();
+            String idStr     = tfContratoId.getText().trim();
             if (idStr.isEmpty()) {
-                // inserir novo
                 contratoDAO.inserir(new Contrato(0, inicio, fim, cpf, matricula));
                 info("Contrato inserido com sucesso!");
             } else {
-                // atualizar existente
                 contratoDAO.atualizar(new Contrato(Integer.parseInt(idStr), inicio, fim, cpf, matricula));
                 info("Contrato atualizado com sucesso!");
             }
@@ -298,11 +479,8 @@ public class MainApp extends Application {
     private void deletarContrato() {
         String idStr = tfContratoId.getText().trim();
         if (idStr.isEmpty()) { info("Selecione um contrato."); return; }
-        try {
-            contratoDAO.deletar(Integer.parseInt(idStr));
-            carregarContratos();
-            info("Contrato removido!");
-        } catch (Exception ex) { erro(ex.getMessage()); }
+        try { contratoDAO.deletar(Integer.parseInt(idStr)); carregarContratos(); info("Contrato removido!"); }
+        catch (Exception ex) { erro(ex.getMessage()); }
     }
 
     private void carregarContratos() {
@@ -348,7 +526,7 @@ public class MainApp extends Application {
             }
         });
 
-        tfAluguelId.setDisable(true); // ID é gerado pelo banco
+        tfAluguelId.setDisable(true);
 
         GridPane form = form(
             new String[]{"ID:", "Retirada (AAAA-MM-DD):", "Devolução (AAAA-MM-DD):", "Valor Total:", "Km Saída:", "Km Chegada:", "CPF Cliente:", "Chassi Veículo:"},
@@ -382,8 +560,7 @@ public class MainApp extends Application {
                                    : new BigDecimal(tfAluguelKmChegada.getText().trim());
             String cpf    = tfAluguelCpf.getText().trim();
             String chassi = tfAluguelChassi.getText().trim();
-
-            String idStr = tfAluguelId.getText().trim();
+            String idStr  = tfAluguelId.getText().trim();
             if (idStr.isEmpty()) {
                 aluguelDAO.inserir(new Aluguel(0, retirada, devolucao, valor, kmSaida, kmChegada, cpf, chassi));
                 info("Aluguel registrado com sucesso!");
@@ -399,11 +576,8 @@ public class MainApp extends Application {
     private void deletarAluguel() {
         String idStr = tfAluguelId.getText().trim();
         if (idStr.isEmpty()) { info("Selecione um aluguel."); return; }
-        try {
-            aluguelDAO.deletar(Integer.parseInt(idStr));
-            carregarAlugueis();
-            info("Aluguel removido!");
-        } catch (Exception ex) { erro(ex.getMessage()); }
+        try { aluguelDAO.deletar(Integer.parseInt(idStr)); carregarAlugueis(); info("Aluguel removido!"); }
+        catch (Exception ex) { erro(ex.getMessage()); }
     }
 
     private void carregarAlugueis() {
