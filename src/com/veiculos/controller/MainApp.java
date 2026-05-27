@@ -17,7 +17,10 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-
+import javafx.scene.chart.BarChart;
+import javafx.scene.chart.CategoryAxis;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
@@ -78,7 +81,8 @@ public class MainApp extends Application {
             new Tab("Veículos",     buildVeiculoTab()),
             new Tab("Contratos",    buildContratoTab()),
             new Tab("Aluguéis",     buildAluguelTab()),
-            new Tab("Operações BD", buildOperacoesTab())
+            new Tab("Operações BD", buildOperacoesTab()),
+            new Tab("Consultas e Views", buildConsultasViewsTab())
         );
 
         stage.setScene(new Scene(tabs, 980, 660));
@@ -239,6 +243,227 @@ public class MainApp extends Application {
         root.getChildren().addAll(painelFuncoes, painelProc, painelTrig, painelResult);
         ScrollPane scroll = new ScrollPane(root);
         scroll.setFitToWidth(true);
+        return scroll;
+    }
+
+    private ScrollPane buildConsultasViewsTab() {
+
+        VBox root = new VBox(18);
+        root.setPadding(new Insets(14));
+
+        // =========================
+        // TABELA DINÂMICA
+        // =========================
+
+        TableView<ObservableList<String>> tabela =
+                buildTabelaDinamica();
+
+        tabela.setPrefHeight(300);
+
+        TextArea resultado = new TextArea();
+        resultado.setEditable(false);
+        resultado.setPrefHeight(100);
+
+        // =========================
+        // KPIs
+        // =========================
+
+        Label lbTotalAlugueis = new Label("Total de Aluguéis: --");
+        Label lbReceita = new Label("Receita Total: --");
+        Label lbClientes = new Label("Clientes Ativos: --");
+
+        VBox indicadores = new VBox(
+                8,
+                lbTotalAlugueis,
+                lbReceita,
+                lbClientes
+        );
+
+        indicadores.setPadding(new Insets(10));
+        indicadores.setStyle(
+                "-fx-border-color: lightgray;" +
+                        "-fx-border-radius: 8;" +
+                        "-fx-background-radius: 8;"
+        );
+
+        // =========================
+        // GRÁFICO
+        // =========================
+
+        CategoryAxis xAxis = new CategoryAxis();
+        NumberAxis yAxis = new NumberAxis();
+
+        BarChart<String, Number> grafico =
+                new BarChart<>(xAxis, yAxis);
+
+        grafico.setTitle("Clientes que Mais Gastaram");
+
+        // =========================
+        // CONSULTA 1
+        // =========================
+
+        Label lbConsulta1 =
+                new Label("Clientes que mais gastaram:");
+
+        Button btnConsulta1 =
+                new Button("Executar Consulta");
+
+        btnConsulta1.setOnAction(e -> {
+
+            try (
+                    Connection con = getConnection();
+                    Statement st = con.createStatement();
+
+                    ResultSet rs = st.executeQuery(
+
+                            "SELECT c.nome, " +
+                                    "SUM(a.valor_total) AS total_gasto " +
+                                    "FROM aluguel a " +
+                                    "JOIN cliente c ON a.cpf_cliente = c.cpf " +
+                                    "GROUP BY c.nome " +
+                                    "ORDER BY total_gasto DESC"
+
+                    )
+            ) {
+
+                preencherTabela(tabela, rs);
+
+                resultado.setText(
+                        "Consulta executada com sucesso!"
+                );
+
+            } catch (Exception ex) {
+
+                resultado.setText(
+                        "Erro: " + ex.getMessage()
+                );
+
+            }
+
+            // ===== GRÁFICO =====
+
+            grafico.getData().clear();
+
+            XYChart.Series<String, Number> serie =
+                    new XYChart.Series<>();
+
+            try (
+                    Connection con = getConnection();
+                    Statement st = con.createStatement();
+
+                    ResultSet rs = st.executeQuery(
+
+                            "SELECT c.nome, " +
+                                    "SUM(a.valor_total) AS total_gasto " +
+                                    "FROM aluguel a " +
+                                    "JOIN cliente c ON a.cpf_cliente = c.cpf " +
+                                    "GROUP BY c.nome " +
+                                    "ORDER BY total_gasto DESC"
+
+                    )
+            ) {
+
+                while (rs.next()) {
+
+                    serie.getData().add(
+
+                            new XYChart.Data<>(
+
+                                    rs.getString("nome"),
+                                    rs.getDouble("total_gasto")
+
+                            )
+
+                    );
+
+                }
+
+                grafico.getData().add(serie);
+
+            } catch (Exception ex) {
+
+                resultado.setText(
+                        "Erro gráfico: " + ex.getMessage()
+                );
+
+            }
+
+            // ===== KPIs =====
+
+            try (
+                    Connection con = getConnection();
+                    Statement st = con.createStatement()
+            ) {
+
+                ResultSet rs1 = st.executeQuery(
+                        "SELECT COUNT(*) AS total FROM aluguel"
+                );
+
+                if (rs1.next()) {
+
+                    lbTotalAlugueis.setText(
+                            "Total de Aluguéis: "
+                                    + rs1.getInt("total")
+                    );
+
+                }
+
+                ResultSet rs2 = st.executeQuery(
+                        "SELECT SUM(valor_total) AS receita FROM aluguel"
+                );
+
+                if (rs2.next()) {
+
+                    lbReceita.setText(
+                            "Receita Total: R$ "
+                                    + rs2.getString("receita")
+                    );
+
+                }
+
+                ResultSet rs3 = st.executeQuery(
+                        "SELECT COUNT(*) AS total FROM cliente"
+                );
+
+                if (rs3.next()) {
+
+                    lbClientes.setText(
+                            "Clientes Ativos: "
+                                    + rs3.getInt("total")
+                    );
+
+                }
+
+            } catch (Exception ex) {
+
+                resultado.setText(
+                        "Erro KPIs: " + ex.getMessage()
+                );
+
+            }
+
+        });
+
+        VBox consulta1 = new VBox(
+                10,
+                lbConsulta1,
+                btnConsulta1
+        );
+
+        root.getChildren().addAll(
+
+                consulta1,
+                tabela,
+                grafico,
+                indicadores,
+                resultado
+
+        );
+
+        ScrollPane scroll = new ScrollPane(root);
+
+        scroll.setFitToWidth(true);
+
         return scroll;
     }
 
